@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% load static %}
+{% load ocr_filters %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-center">Leitor OCR</h2>
+    
+    <!-- Upload Section -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-upload me-2"></i>Enviar Fatura</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data" id="uploadForm">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="faturaInput" class="form-label">
+                        <i class="fas fa-file-invoice me-1"></i>Selecione o arquivo da fatura
+                    </label>
+                    <input class="form-control" type="file" name="fatura" id="faturaInput" 
+                           accept=".pdf,.jpg,.jpeg,.png" required>
+                    <div class="form-text">Formatos aceitos: PDF, JPG, PNG (Tamanho máximo: 5MB)</div>
+                </div>
+                
+                <div class="alert alert-info mb-3">
+                    <h6 class="alert-heading"><i class="fas fa-lightbulb me-1"></i>Dicas para melhor reconhecimento:</h6>
+                    <ul class="mb-0">
+                        <li>Posicione a câmera diretamente sobre a fatura</li>
+                        <li>Garanta boa iluminação natural</li>
+                        <li>Evite sombras e reflexos</li>
+                        <li>Enquadre toda a fatura na foto</li>
+                        <li>Para PDFs, prefira documentos com texto (não imagens escaneadas)</li>
+                    </ul>
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100" id="processBtn">
+                    <i class="fas fa-cog me-2"></i><span id="btnText">Processar</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Processing Info -->
+    {% if process_time %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>Resultado do Processamento</h5>
+        </div>
+        <div class="card-body">
+            {% if is_pdf %}
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-file-pdf me-2"></i>
+                    Documento PDF processado
+                    {% with texto_extraido|split:"--- Página" as paginas %}
+                        ({{ paginas|length|add:"-1" }} páginas)
+                    {% endwith %}
+                <br><br></div>
+            {% endif %}
+            
+            <div class="processing-info-container">
+                <!-- Processing Details -->
+                <div class="info-table mb-4">
+                    <div class="info-row">
+                        <div class="info-label"><i class="fas fa-stopwatch me-2"></i>Tempo:</div>
+                        <div class="info-value">{{ process_time|floatformat:2 }} segundos<br><br></div>
+                    </div>
+                </div>
+                
+                <!-- Extracted Text -->
+                <div class="ocr-text-container">
+                    <h5 class="mb-3"><i class="fas fa-file-alt me-2"></i>Texto Extraído</h5>
+                    <pre>{{ texto_extraido }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Error Message -->
+    {% if erro %}
+    <div class="alert alert-danger mt-4">
+        <h5><i class="fas fa-exclamation-triangle me-2"></i>Erro no Processamento</h5>
+        <p class="mb-2">{{ erro }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card {
+        border-radius: 0.5rem;
+        border: 1px solid rgba(0,0,0,.125);
+    }
+    .card-header {
+        font-weight: 500;
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+    }
+    .processing-info-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    .info-table {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        border: 1px solid #dee2e6;
+    }
+    .info-row {
+        display: flex;
+        margin-bottom: 0.5rem;
+    }
+    .info-label {
+        font-weight: 600;
+        width: 150px;
+        color: #495057;
+    }
+    .info-value {
+        flex: 1;
+        color: #212529;
+    }
+    .ocr-text-container {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        border: 1px solid #dee2e6;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        margin: 0;
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+    @media (max-width: 576px) {
+        .info-label {
+            width: 130px;
+            font-size: 0.9rem;
+        }
+        .ocr-text-container {
+            padding: 1rem;
+            max-height: 300px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadForm = document.getElementById('uploadForm');
+    const processBtn = document.getElementById('processBtn');
+    const fileInput = document.getElementById('faturaInput');
+    
+    // Validação de tamanho de arquivo
+    fileInput.addEventListener('change', function() {
+        const file = this.files[0];
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        
+        if (file && file.size > maxSize) {
+            alert('Arquivo muito grande. Tamanho máximo permitido: 5MB');
+            this.value = '';
+        }
+    });
+
+    // Controle do botão de processamento
+    if (uploadForm && processBtn) {
+        uploadForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Salva o estado original
+            const originalBtnHTML = processBtn.innerHTML;
+            
+            // Ativa estado de processamento
+            processBtn.disabled = true;
+            processBtn.innerHTML = `
+                <i class="fas fa-spinner fa-spin me-2"></i> Processando...
+            `;
+            
+            // Cria FormData e envia via AJAX
+            const formData = new FormData(uploadForm);
+            
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    return response.json().then(data => {
+                        if (data.error) {
+                            throw new Error(data.error);
+                        }
+                        window.location.reload();
+                    });
+                }
+            })
+            .catch(error => {
+                // Restaura o botão
+                processBtn.disabled = false;
+                processBtn.innerHTML = originalBtnHTML;
+                
+                // Mostra erro
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'alert alert-danger mt-4';
+                errorDiv.innerHTML = `
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>Erro</h5>
+                    <p class="mb-0">${error.message}</p>
+                `;
+                
+                // Remove erros anteriores
+                const oldAlert = document.querySelector('.alert-danger');
+                if (oldAlert) oldAlert.remove();
+                
+                // Insere o novo alerta
+                document.querySelector('.container').prepend(errorDiv);
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

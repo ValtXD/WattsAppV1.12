@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <h1>Cálculo de Consumo de Energia</h1>
+    
+    <form method="post" id="form-contador">
+        {% csrf_token %}
+        
+        <!-- Seção de Dados Básicos -->
+        <div style="margin-bottom: 20px;">
+            <h3>Estado</h3>
+            <select name="estado" required style="width: 100%; padding: 8px; border: 1px solid #ddd;">
+                <option value="">Selecione seu estado...</option>
+                {% for estado, tarifa in tarifas_estados.items %}
+                <option value="{{ estado }}">{{ estado }} (R$ {{ tarifa }}/kWh)</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <h3>Bandeira Tarifária</h3>
+            <select name="bandeira" required style="width: 100%; padding: 8px; border: 1px solid #ddd;">
+                <option value="">Selecione a bandeira...</option>
+                <option value="verde">Verde (Sem acréscimo)</option>
+                <option value="amarela">Amarela (+ R$ 0,01885/kWh)</option>
+                <option value="vermelha1">Vermelha Patamar 1 (+ R$ 0,04463/kWh)</option>
+                <option value="vermelha2">Vermelha Patamar 2 (+ R$ 0,07877/kWh)</option>
+            </select>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <h3>Tarifa Social</h3>
+            <select name="tarifa_social" required style="width: 100%; padding: 8px; border: 1px solid #ddd;">
+                <option value="0">Não se aplica</option>
+                <option value="30">Até 30 kWh (65% de desconto)</option>
+                <option value="100">31 a 100 kWh (40% de desconto)</option>
+                <option value="220">101 a 220 kWh (10% de desconto)</option>
+            </select>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <h3>Consumo Mensal (kWh)</h3>
+            <input type="number" name="consumo" step="0.1" required 
+                   style="width: 100%; padding: 8px; border: 1px solid #ddd;">
+        </div>
+
+        <!-- Botão Calcular -->
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" name="calcular" 
+                    style="padding: 10px 20px; background: #17a2b8; color: white; border: none; cursor: pointer;">
+                Calcular
+            </button>
+            <a href="{% url 'core:home' %}" 
+               style="padding: 10px 20px; background: #6c757d; color: white; text-decoration: none;">
+                Voltar
+            </a>
+        </div>
+    </form>
+
+    <!-- Resultado do Cálculo -->
+    {% if resultado %}
+    <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 4px;">
+        <h2>Resultado</h2>
+        <p><strong>Consumo:</strong> {{ resultado.consumo }} kWh</p>
+        <p><strong>Tarifa Base ({{ resultado.estado }}):</strong> R$ {{ resultado.tarifa_base }}</p>
+        <p><strong>Bandeira:</strong> {{ resultado.bandeira }} (+ R$ {{ resultado.acrescimo_bandeira }}/kWh)</p>
+        <p><strong>Tarifa Social:</strong> {{ resultado.desconto_tarifa_social }}% de desconto</p>
+        <p><strong>Total a Pagar:</strong> R$ {{ resultado.total }}</p>
+        
+        <!-- Formulário separado para salvar -->
+        <form method="post" style="margin-top: 20px;">
+            {% csrf_token %}
+            <input type="hidden" name="consumo" value="{{ resultado.consumo }}">
+            <input type="hidden" name="total" value="{{ resultado.total }}">
+            <input type="hidden" name="estado" value="{{ resultado.estado }}">
+            <input type="hidden" name="bandeira" value="{{ resultado.bandeira }}">
+            <button type="submit" name="salvar" 
+                    style="padding: 10px 20px; background: #28a745; color: white; border: none; cursor: pointer;">
+                Salvar e Ver Resultados
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

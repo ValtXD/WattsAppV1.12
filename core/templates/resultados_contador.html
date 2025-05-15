@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    {% if mostrar_aviso %}
+    <div class="alert alert-info">
+        Nenhum cálculo recente encontrado. 
+        <a href="{% url 'core:contador_energia' %}">Calcule primeiro</a>.
+    </div>
+    {% endif %}
+
+    {% if dados_calculo %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2>Confirmação de Dados</h2>
+        </div>
+        <div class="card-body">
+            <p><strong>Data:</strong> {{ dados_calculo.data }}</p>
+            <p><strong>Estado:</strong> {{ dados_calculo.estado }}</p>
+            <p><strong>Consumo:</strong> {{ dados_calculo.consumo|floatformat:2 }} kWh</p>
+            <p><strong>Total:</strong> R$ {{ dados_calculo.total|floatformat:2 }}</p>
+            
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" name="confirmar" class="btn btn-success">
+                    Confirmar e Salvar
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Histórico de Registros</h2>
+        </div>
+        <div class="card-body">
+            {% if registros %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Estado</th>
+                        <th>Consumo (kWh)</th>
+                        <th>Total (R$)</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for registro in registros %}
+                    <tr>
+                        <td>{{ registro.data_registro|date:"d/m/Y H:i" }}</td>
+                        <td>{{ registro.estado }}</td>
+                        <td>{{ registro.consumo_kwh|floatformat:2 }}</td>
+                        <td>{{ registro.total_pagar|floatformat:2 }}</td>
+                        <td>
+                            <button onclick="deletarRegistro('{{ registro.id }}')" 
+                                    class="btn btn-danger btn-sm">
+                                Excluir
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>Nenhum registro encontrado.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <a href="{% url 'core:contador_energia' %}" class="btn btn-secondary">
+            Voltar ao Contador
+        </a>
+        <a href="{% url 'core:home' %}" class="btn btn-primary ml-2">
+            Página Inicial
+        </a>
+        <a href="{% url 'core:monitoramento_contador' %}" class="btn btn-primary ml-2">
+            Ver Gráficos
+    </a>
+
+    </div>
+</div>
+
+<script>
+function deletarRegistro(id) {
+    if (confirm('Tem certeza que deseja excluir este registro?')) {
+        fetch(`/deletar-registro-contador/${id}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Erro na requisição');
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao excluir registro');
+        });
+    }
+}
+</script>
+
+{% endblock %}

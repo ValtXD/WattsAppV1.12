@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Monitoramento de Consumo</h2>
+
+    <!-- Área de Debug -->
+    <div class="alert alert-secondary mb-4">
+        <button id="toggleDebug" class="btn btn-sm btn-info mb-2">Mostrar Debug</button>
+        <div id="debugArea" style="display:none;">
+            <div id="debugContent" class="mt-2 small"></div>
+        </div>
+    </div>
+
+    <!-- Card de Seleção -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5><i class="fas fa-database me-2"></i> Selecione os Dados</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <select id="selectConjunto" class="form-select">
+                        <option value="">Selecione um conjunto...</option>
+                        {% for conjunto in conjuntos %}
+                        <option value="{{ conjunto.id }}">{{ conjunto.nome }} ({{ conjunto.get_tipo_display }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button id="btnGerarGrafico" class="btn btn-success w-100" disabled>
+                        <i class="fas fa-chart-bar me-2"></i> Gerar Gráfico
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container do Gráfico -->
+    <div id="graficoContainer" class="card mb-4" style="display:none;">
+        <div class="card-header bg-info text-white">
+            <h5><i class="fas fa-chart-pie me-2"></i> Visualização do Consumo</h5>
+        </div>
+        <div class="card-body">
+            <canvas id="graficoCanvas" height="400"></canvas>
+        </div>
+    </div>
+
+    <!-- Status -->
+    <div id="mensagemStatus" class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i> Selecione um conjunto de dados
+    </div>
+
+    <!-- Debug oculto -->
+    <div style="display:none;" id="templateData">
+        Conjuntos: {{ conjuntos|length }}
+        IDs: {% for c in conjuntos %}{{ c.id }}{% if not forloop.last %},{% endif %}{% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Elementos DOM
+    const select = document.getElementById('selectConjunto');
+    const btnGerar = document.getElementById('btnGerarGrafico');
+    const container = document.getElementById('graficoContainer');
+    const mensagem = document.getElementById('mensagemStatus');
+    const debugArea = document.getElementById('debugArea');
+    const debugContent = document.getElementById('debugContent');
+    const toggleDebug = document.getElementById('toggleDebug');
+    let chart = null;
+
+    // Obter dados dos conjuntos do template
+    const conjuntosData = {
+        count: document.getElementById('selectConjunto').length - 1, // -1 para a option vazia
+        ids: Array.from(document.getElementById('selectConjunto').options)
+                 .filter(opt => opt.value)
+                 .map(opt => opt.value)
+    };
+
+    // Função de debug
+    function debugLog(message, data = null) {
+        console.log('[DEBUG]', message, data || '');
+        if (debugArea.style.display === 'block') {
+            const entry = document.createElement('div');
+            entry.innerHTML = `<div class="mb-1">${new Date().toLocaleTimeString()}: ${message}</div>`;
+            if (data) {
+                const pre = document.createElement('pre');
+                pre.className = 'bg-light p-2 small';
+                pre.textContent = JSON.stringify(data, null, 2);
+                entry.appendChild(pre);
+            }
+            debugContent.appendChild(entry);
+        }
+    }
+
+    // Toggle debug area
+    toggleDebug.addEventListener('click', function() {
+        debugArea.style.display = debugArea.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Verificar se Chart.js está carregado
+    if (typeof Chart === 'undefined') {
+        showError('Biblioteca de gráficos não carregada!');
+        return;
+    }
+
+    // Seleção de conjunto
+    select.addEventListener('change', function() {
+        btnGerar.disabled = !this.value;
+        debugLog('Conjunto selecionado:', {
+            id: this.value,
+            text: this.options[this.selectedIndex].text
+        });
+    });
+
+    // Gerar gráfico
+    btnGerar.addEventListener('click', async function() {
+        const conjuntoId = select.value;
+        if (!conjuntoId) return;
+
+        showLoading();
+        
+        try {
+            debugLog('Enviando requisição AJAX...');
+            const response = await fetch(`/monitoramento-documentacao/?ajax=1&conjunto_id=${conjuntoId}`);
+            
+            if (!response.ok) {
+                throw new Error(`Erro HTTP: ${response.status}`);
+            }
+
+            const data = await response.json();
+            debugLog('Dados recebidos:', data);
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            renderChart(data);
+            showSuccess('Gráfico gerado com sucesso!');
+            
+        } catch (error) {
+            console.error('Erro:', error);
+            debugLog('Erro ao gerar gráfico', error.message);
+            showError(error.message);
+        }
+    });
+
+    // Renderizar gráfico
+    function renderChart(data) {
+        if (chart) {
+            chart.destroy();
+        }
+
+        const ctx = document.getElementById('graficoCanvas').getContext('2d');
+        const isContador = data.tipo === 'contador';
+        
+        chart = new Chart(ctx, {
+            type: isContador ? 'line' : 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: data.datasets[0].label,
+                    data: data.datasets[0].data,
+                    backgroundColor: isContador ? 'rgba(54, 162, 235, 0.5)' : 'rgba(75, 192, 192, 0.5)',
+                    borderColor: isContador ? 'rgba(54, 162, 235, 1)' : 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    tension: isContador ? 0.1 : 0
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: data.datasets[0].label
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: !isContador,
+                        title: {
+                            display: true,
+                            text: 'Consumo (kWh)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: isContador ? 'Data' : 'Aparelhos'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Funções auxiliares de UI
+    function showLoading() {
+        mensagem.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Gerando gráfico...';
+        mensagem.className = 'alert alert-warning';
+        container.style.display = 'none';
+    }
+
+    function showSuccess(message) {
+        mensagem.innerHTML = `<i class="fas fa-check-circle me-2"></i> ${message}`;
+        mensagem.className = 'alert alert-success';
+        container.style.display = 'block';
+    }
+
+    function showError(message) {
+        mensagem.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i> ${message}`;
+        mensagem.className = 'alert alert-danger';
+        container.style.display = 'none';
+    }
+
+    // Debug inicial
+    debugLog('Página carregada com sucesso');
+    debugLog('Dados dos conjuntos:', conjuntosData);
+});
+</script>
+
+<style>
+#graficoContainer {
+    transition: all 0.3s ease;
+}
+
+#debugContent {
+    max-height: 200px;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.chart-container {
+    position: relative;
+    height: 400px;
+    width: 100%;
+}
+</style>
+{% endblock %}

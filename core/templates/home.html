@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <h1>Simulador de Consumo de Energia</h1>
+    <p>Calcule o consumo e o custo estimado dos aparelhos da sua residência</p>
+    
+    <div style="margin-top: 30px;">
+        <h2>Como usar:</h2>
+        <ol style="line-height: 1.6;">
+            <li><strong>Cadastre aparelhos</strong> na aba "Cálculo"</li>
+            <li><strong>Verifique os resultados</strong> na aba "Resultados"</li>
+            <li><strong>Analise os gráficos</strong> na aba "Monitoramento"</li>
+        </ol>
+    </div>
+
+    <div style="margin-top: 40px; background: #f8f9fa; padding: 15px; border-radius: 5px;">
+        <h3>Tarifas de Referência</h3>
+        <p>Os cálculos usam como base:</p>
+        <ul>
+            <li>Tarifa Normal: R$ 0,70/kWh</li>
+            <li>Tarifa Social: R$ 0,50/kWh</li>
+        </ul>
+        <p style="font-size: 0.9em; margin-top: 10px;">
+            * Valores podem ser ajustados no painel administrativo.
+        </p>
+    </div>
+</div>
+{% endblock %}

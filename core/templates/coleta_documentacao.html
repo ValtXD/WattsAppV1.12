@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+{% load static %}
+{% load ocr_filters %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4 text-center">Documentação Estruturada</h2>
+    
+    <!-- Upload Section -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="fas fa-file-upload me-2"></i>Enviar Documento</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data" id="uploadForm">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="documentoInput" class="form-label">
+                        <i class="fas fa-file-alt me-1"></i>Selecione o arquivo (Excel/Word)
+                    </label>
+                    <input class="form-control" type="file" name="documento" id="documentoInput" 
+                           accept=".xlsx,.xls,.docx,.doc" required>
+                    <div class="form-text">Formatos aceitos: XLSX, XLS, DOCX, DOC (Tamanho máximo: 5MB)</div>
+                </div>
+                
+                <div class="alert alert-info mb-3">
+                    <h6 class="alert-heading"><i class="fas fa-lightbulb me-1"></i>Dicas para melhor reconhecimento:</h6>
+                    <ul class="mb-0">
+                        <li>Use os templates abaixo para garantir estrutura consistente</li>
+                        <li>Mantenha os cabeçalhos das tabelas inalterados</li>
+                        <li>Evite mesclar células ou usar formatação complexa</li>
+                    </ul>
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100" id="processBtn">
+                    <i class="fas fa-cog me-2"></i><span id="btnText">Processar</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Template Downloads -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0"><i class="fas fa-download me-2"></i>Templates para Download</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Template Aparelhos -->
+                <div class="col-md-6 mb-3">
+                    <div class="template-card p-3 border rounded h-100">
+                        <h5><i class="fas fa-plug me-2 text-warning"></i>Aparelhos Elétricos</h5>
+                        <h6 class="small text-muted">Modelo para lista de aparelhos com potência e horas de uso diário.</h6>
+                        <div class="btn-group btn-group-sm mt-2">
+                            <a href="{% static 'templates/template_aparelhos.xlsx' %}" class="btn btn-outline-success" download>
+                                <i class="fas fa-file-excel me-1"></i>Excel
+                            </a>
+                            <a href="{% static 'templates/template_aparelhos.docx' %}" class="btn btn-outline-primary" download>
+                                <i class="fas fa-file-word me-1"></i>Word
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Template Contador -->
+                <div class="col-md-6 mb-3">
+                    <div class="template-card p-3 border rounded h-100">
+                        <h5><i class="fas fa-tachometer-alt me-2 text-info"></i>Contador de Energia</h5>
+                        <h6 class="small text-muted">Modelo para registro de leituras do contador de energia - (Diária) (Diária) (Mensal) (Mensal).</h6>
+                        <div class="btn-group btn-group-sm mt-2">
+                            <a href="{% static 'templates/template_contador.xlsx' %}" class="btn btn-outline-success" download>
+                                <i class="fas fa-file-excel me-1"></i>Excel
+                            </a>
+                            <a href="{% static 'templates/template_contador.docx' %}" class="btn btn-outline-primary" download>
+                                <i class="fas fa-file-word me-1"></i>Word
+                            </a>
+                            <a href="{% static 'templates/template_contador_mensal.xlsx' %}" class="btn btn-outline-success" download>
+                                <i class="fas fa-file-excel me-1"></i>Excel
+                            </a>
+                            <a href="{% static 'templates/template_contador_mensal.docx' %}" class="btn btn-outline-success" download>
+                                <i class="fas fa-file-excel me-1"></i>Word
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert alert-warning mt-3">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <strong>Importante:</strong> Mantenha a estrutura original dos templates para garantir o reconhecimento correto dos dados.
+            </div>
+        </div>
+    </div>
+
+    <!-- Processing Results -->
+    {% if process_time %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>Resultado do Processamento</h5>
+        </div>
+        <div class="card-body">
+            <div class="processing-info-container">
+                <div class="info-table mb-4">
+                    <div class="info-row">
+                        <div class="info-label"><i class="fas fa-stopwatch me-2"></i>Tempo:</div>
+                        <div class="info-value">{{ process_time|floatformat:2 }} segundos</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label"><i class="fas fa-file-signature me-2"></i>Arquivo:</div>
+                        <div class="info-value">
+                            {{ uploaded_file_name }}
+                            {% if file_type == 'excel' %}
+                                <span class="badge bg-success ms-2"><i class="fas fa-file-excel me-1"></i>Excel</span>
+                            {% elif file_type == 'word' %}
+                                <span class="badge bg-primary ms-2"><i class="fas fa-file-word me-1"></i>Word</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Extracted Data -->
+                <div class="ocr-text-container">
+                    <h5 class="mb-3"><i class="fas fa-table me-2"></i>Dados Extraídos</h5>
+                    
+                    {% if extracted_data %}
+                        {% if file_type == 'excel' %}
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            {% for header in extracted_data.headers %}
+                                                <th>{{ header }}</th>
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for row in extracted_data.rows %}
+                                            <tr>
+                                                {% for cell in row %}
+                                                    <td>{{ cell }}</td>
+                                                {% endfor %}
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% elif file_type == 'word' %}
+                            {% for table in extracted_data %}
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                {% for header in table.headers %}
+                                                    <th>{{ header }}</th>
+                                                {% endfor %}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for row in table.rows %}
+                                                <tr>
+                                                    {% for cell in row %}
+                                                        <td>{{ cell|default:"-" }}</td>
+                                                    {% endfor %}
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-warning">Nenhum dado estruturado foi identificado no documento.</div>
+                    {% endif %}
+                </div>
+
+                <!-- Botão para Resultado Documentação -->
+                <div class="d-grid gap-2 mt-4">
+                    <a href="{% url 'core:resultado_documentacao' %}" class="btn btn-success" id="btnResultado">
+                        <i class="fas fa-calculator me-2"></i>Calcular Consumo
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Error Message -->
+    {% if erro %}
+    <div class="alert alert-danger mt-4">
+        <h5><i class="fas fa-exclamation-triangle me-2"></i>Erro no Processamento</h5>
+        <p class="mb-2">{{ erro }}</p>
+        {% if debug_info %}
+        <details class="mt-2">
+            <summary class="small">Detalhes técnicos</summary>
+            <pre class="small p-2 bg-dark text-white mt-2">{{ debug_info }}</pre>
+        </details>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card {
+        border-radius: 0.5rem;
+        border: 1px solid rgba(0,0,0,.125);
+    }
+    .card-header {
+        font-weight: 500;
+        border-radius: 0.5rem 0.5rem 0 0 !important;
+    }
+    .template-card {
+        transition: transform 0.2s;
+        background: #f8f9fa;
+    }
+    .template-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .processing-info-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    .info-table {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        border: 1px solid #dee2e6;
+    }
+    .info-row {
+        display: flex;
+        margin-bottom: 0.5rem;
+    }
+    .info-label {
+        font-weight: 600;
+        width: 150px;
+        color: #495057;
+    }
+    .info-value {
+        flex: 1;
+        color: #212529;
+    }
+    .ocr-text-container {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        border: 1px solid #dee2e6;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    .badge {
+        font-weight: 500;
+        padding: 0.35em 0.65em;
+    }
+    #btnResultado {
+        transition: all 0.3s;
+    }
+    #btnResultado:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    @media (max-width: 768px) {
+        .info-label {
+            width: 120px;
+            font-size: 0.9rem;
+        }
+        .btn-group-sm .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // File size validation
+    document.getElementById('documentoInput').addEventListener('change', function() {
+        const file = this.files[0];
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        
+        if (file && file.size > maxSize) {
+            alert('Arquivo muito grande. Tamanho máximo permitido: 5MB');
+            this.value = '';
+            document.getElementById('processBtn').disabled = true;
+        } else {
+            document.getElementById('processBtn').disabled = false;
+        }
+    });
+
+    // Form submission handling
+    const uploadForm = document.getElementById('uploadForm');
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const processBtn = document.getElementById('processBtn');
+            const originalBtnText = processBtn.innerHTML;
+            
+            // Show processing state
+            processBtn.disabled = true;
+            processBtn.innerHTML = `
+                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Processando...
+            `;
+            
+            // Submit form data via AJAX
+            const formData = new FormData(this);
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    return response.json().then(data => {
+                        if (data.error) {
+                            throw new Error(data.error);
+                        }
+                        window.location.reload();
+                    });
+                }
+            })
+            .catch(error => {
+                processBtn.disabled = false;
+                processBtn.innerHTML = originalBtnText;
+                
+                // Show error message
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'alert alert-danger mt-4';
+                errorDiv.innerHTML = `
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>Erro</h5>
+                    <p class="mb-0">${error.message}</p>
+                `;
+                
+                // Remove previous errors
+                const oldAlert = document.querySelector('.alert-danger');
+                if (oldAlert) oldAlert.remove();
+                
+                // Insert new alert
+                document.querySelector('.container').prepend(errorDiv);
+                
+                // Scroll to error
+                errorDiv.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

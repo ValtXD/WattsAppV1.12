@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Monitoramento de Consumo</h1>
+    
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <div class="chart-container" style="position: relative; height:400px; width:100%">
+                <canvas id="consumoChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="text-center mt-3">
+        <a href="{% url 'core:resultados_contador' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar aos Resultados
+        </a>
+    </div>
+</div>
+
+<!-- Inclua Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Busca dados via AJAX
+    fetch('{% url "core:monitoramento_contador" %}', {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const ctx = document.getElementById('consumoChart').getContext('2d');
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.estados,
+                datasets: [
+                    {
+                        label: 'Consumo (kWh)',
+                        data: data.consumos,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Total Pago (R$)',
+                        data: data.totais,
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                        tension: 0.1,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Consumo (kWh)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Total (R$)'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    }
+                }
+            }
+        });
+    });
+});
+</script>
+
+<style>
+    .chart-container {
+        min-height: 400px;
+    }
+    .btn-secondary {
+        margin-top: 20px;
+    }
+</style>
+{% endblock %}

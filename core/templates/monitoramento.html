@@ -1,0 +1,439 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>Monitoramento de Energia</h1>
+
+    <!-- Gráficos Atuais -->
+    <div class="graficos-container">
+        <div class="grafico-card">
+            <h2>Consumo por Ambiente (kWh)</h2>
+            <div class="chart-container">
+                <canvas id="consumoAtualChart"></canvas>
+            </div>
+        </div>
+        <div class="grafico-card">
+            <h2>Custo por Ambiente (R$)</h2>
+            <div class="chart-container">
+                <canvas id="custoAtualChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos Comparativos -->
+    <div class="grafico-card historico">
+        <h2>Comparativo Histórico</h2>
+        
+        <!-- Filtro por Período -->
+        <form class="filtro-data">
+            <div class="input-group-duplo">
+                <div class="input-group">
+                    <label>Período 1:</label>
+                    <select id="periodo1-select">
+                        <option value="">Selecione uma data</option>  <!-- Opção vazia -->
+                        {% for data in datas_disponiveis %}
+                        <option value="{{ data|date:'Y-m-d' }}" 
+                                {% if data|date:'Y-m-d' == periodo1 %}selected{% endif %}>
+                            {{ data|date:"d/m/Y" }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Período 2:</label>
+                    <select id="periodo2-select">
+                        <option value="">Selecione uma data</option>  <!-- Opção vazia -->
+                        {% for data in datas_disponiveis %}
+                        <option value="{{ data|date:'Y-m-d' }}" 
+                                {% if data|date:'Y-m-d' == periodo2 %}selected{% endif %}>
+                            {{ data|date:"d/m/Y" }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <button type="button" id="aplicar-filtro" class="btn-comparar">Comparar Períodos</button>
+        </form>
+
+        <!-- Gráficos Comparativos -->
+        <div class="graficos-quadruplos">
+            <!-- Linha 1 - Consumo -->
+            <div class="linha-graficos">
+                <div class="grafico-comparativo">
+                    <h3 id="titulo-consumo-periodo1">Consumo - {% if periodo1 %}{{ periodo1|date:"d/m/Y" }}{% else %}Período 1{% endif %}</h3>
+                    <div class="chart-container">
+                        <canvas id="consumoPeriodo1Chart"></canvas>
+                    </div>
+                </div>
+                <div class="grafico-comparativo">
+                    <h3 id="titulo-consumo-periodo2">Consumo - {% if periodo2 %}{{ periodo2|date:"d/m/Y" }}{% else %}Período 2{% endif %}</h3>
+                    <div class="chart-container">
+                        <canvas id="consumoPeriodo2Chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Linha 2 - Custo -->
+            <div class="linha-graficos">
+                <div class="grafico-comparativo">
+                    <h3 id="titulo-custo-periodo1">Custo - {% if periodo1 %}{{ periodo1|date:"d/m/Y" }}{% else %}Período 1{% endif %}</h3>
+                    <div class="chart-container">
+                        <canvas id="custoPeriodo1Chart"></canvas>
+                    </div>
+                </div>
+                <div class="grafico-comparativo">
+                    <h3 id="titulo-custo-periodo2">Custo - {% if periodo2 %}{{ periodo2|date:"d/m/Y" }}{% else %}Período 2{% endif %}</h3>
+                    <div class="chart-container">
+                        <canvas id="custoPeriodo2Chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Estilos Gerais */
+    .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    h1, h2, h3 {
+        color: #2c3e50;
+    }
+    
+    /* Cards de Gráficos */
+    .grafico-card {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .grafico-card.historico {
+        background: #f8f9fa;
+    }
+    
+    /* Layout dos Gráficos */
+    .graficos-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .graficos-quadruplos {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+    
+    .linha-graficos {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    
+    .grafico-comparativo {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 1px 5px rgba(0,0,0,0.05);
+    }
+    
+    /* Contêiner dos Gráficos */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+    
+    /* Filtros */
+    .filtro-data {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin: 20px 0;
+    }
+    
+    .input-group-duplo {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    
+    .input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .input-group label {
+        font-weight: 500;
+        color: #34495e;
+    }
+    
+    .periodo-select {
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    /* Botão */
+    .btn-comparar {
+        padding: 10px 20px;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+        align-self: flex-start;
+    }
+    
+    .btn-comparar:hover {
+        background-color: #2980b9;
+    }
+    
+    /* Títulos */
+    .grafico-comparativo h3 {
+        margin-top: 0;
+        font-size: 16px;
+        text-align: center;
+        color: #2c3e50;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Cores para os gráficos
+    const cores = {
+        azul: '#36A2EB',
+        vermelho: '#FF6384',
+        verde: '#4BC0C0',
+        amarelo: '#FFCE56',
+        roxo: '#9966FF',
+        laranja: '#FF9F40'
+    };
+
+    // 1. Inicialização dos Gráficos
+    const charts = {};
+    
+    function initChart(id, type = 'line') {
+        const ctx = document.getElementById(id);
+        charts[id] = new Chart(ctx, {
+            type: type,
+            data: { labels: [], datasets: [] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('pt-BR');
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 2. Gráficos Atuais (Dados Reais)
+    document.addEventListener('DOMContentLoaded', function() {
+        // Gráfico de Consumo Atual
+        new Chart(document.getElementById('consumoAtualChart'), {
+            type: 'bar',
+            data: {
+                labels: JSON.parse('{{ ambientes_json|escapejs }}'),
+                datasets: [{
+                    label: 'Consumo (kWh)',
+                    data: JSON.parse('{{ consumos_json|escapejs }}'),
+                    backgroundColor: cores.azul,
+                    borderColor: cores.azul,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString('pt-BR');
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gráfico de Custo Atual
+        new Chart(document.getElementById('custoAtualChart'), {
+            type: 'bar',
+            data: {
+                labels: JSON.parse('{{ ambientes_json|escapejs }}'),
+                datasets: [
+                    {
+                        label: 'Tarifa Normal',
+                        data: JSON.parse('{{ custos_normal_json|escapejs }}'),
+                        backgroundColor: cores.vermelho,
+                        borderColor: cores.vermelho,
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Tarifa Social',
+                        data: JSON.parse('{{ custos_social_json|escapejs }}'),
+                        backgroundColor: cores.verde,
+                        borderColor: cores.verde,
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'R$ ' + value.toLocaleString('pt-BR');
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Inicializa gráficos comparativos vazios
+        initChart('consumoPeriodo1Chart');
+        initChart('consumoPeriodo2Chart');
+        initChart('custoPeriodo1Chart');
+        initChart('custoPeriodo2Chart');
+    });
+
+    // 3. Atualização dos Gráficos Comparativos
+    document.getElementById('aplicar-filtro').addEventListener('click', async function() {
+        const periodo1 = document.getElementById('periodo1-select').value;
+        const periodo2 = document.getElementById('periodo2-select').value;
+        
+        if (!periodo1 || !periodo2) {
+            alert('Por favor, selecione ambos os períodos para comparação!');
+            return;
+        }
+        
+        if (periodo1 === periodo2) {
+        alert('Selecione períodos diferentes para comparação!');
+        return;
+        }
+
+        try {
+            // Mostra loading
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = 'Carregando...';
+
+            // Faz a requisição
+            const response = await fetch(`/monitoramento/?periodo1=${periodo1}&periodo2=${periodo2}&format=json`);
+            
+            if (!response.ok) {
+                throw new Error(`Erro: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // Função para formatar data
+            function formatarData(dataStr) {
+                const date = new Date(dataStr);
+                return date.toLocaleDateString('pt-BR');
+            }
+
+            // Atualiza gráficos de consumo
+            updateChart('consumoPeriodo1Chart', 
+                      data.periodo1.ambientes, 
+                      data.periodo1.consumo, 
+                      `Consumo (kWh) - ${formatarData(periodo1)}`, 
+                      cores.azul);
+            
+            updateChart('consumoPeriodo2Chart', 
+                      data.periodo2.ambientes, 
+                      data.periodo2.consumo, 
+                      `Consumo (kWh) - ${formatarData(periodo2)}`, 
+                      cores.roxo);
+
+            // Atualiza gráficos de custo
+            updateMultiChart('custoPeriodo1Chart',
+                           data.periodo1.ambientes,
+                           [data.periodo1.custo_normal, data.periodo1.custo_social],
+                           [`Normal (R$) - ${formatarData(periodo1)}`, `Social (R$) - ${formatarData(periodo1)}`],
+                           [cores.vermelho, cores.verde]);
+            
+            updateMultiChart('custoPeriodo2Chart',
+                           data.periodo2.ambientes,
+                           [data.periodo2.custo_normal, data.periodo2.custo_social],
+                           [`Normal (R$) - ${formatarData(periodo2)}`, `Social (R$) - ${formatarData(periodo2)}`],
+                           [cores.vermelho, cores.verde]);
+
+            // Atualiza títulos
+            document.getElementById('titulo-consumo-periodo1').textContent = `Consumo - ${formatarData(periodo1)}`;
+            document.getElementById('titulo-consumo-periodo2').textContent = `Consumo - ${formatarData(periodo2)}`;
+            document.getElementById('titulo-custo-periodo1').textContent = `Custo - ${formatarData(periodo1)}`;
+            document.getElementById('titulo-custo-periodo2').textContent = `Custo - ${formatarData(periodo2)}`;
+
+        } catch (error) {
+            console.error('Erro ao buscar dados:', error);
+            alert('Erro ao carregar dados comparativos. Verifique o console para detalhes.');
+        } finally {
+            // Restaura o botão
+            const btn = document.getElementById('aplicar-filtro');
+            btn.disabled = false;
+            btn.textContent = 'Comparar Períodos';
+        }
+    });
+
+    // Funções auxiliares
+    function updateChart(chartId, labels, data, label, color) {
+        const chart = charts[chartId];
+        chart.data.labels = labels;
+        chart.data.datasets = [{
+            label: label,
+            data: data,
+            backgroundColor: color,
+            borderColor: color,
+            borderWidth: 1
+        }];
+        chart.update();
+    }
+
+    function updateMultiChart(chartId, labels, dataArrays, labelsArray, colors) {
+        const chart = charts[chartId];
+        chart.data.labels = labels;
+        chart.data.datasets = dataArrays.map((data, i) => ({
+            label: labelsArray[i],
+            data: data,
+            backgroundColor: colors[i],
+            borderColor: colors[i],
+            borderWidth: 1
+        }));
+        chart.update();
+    }
+</script>
+{% endblock %}

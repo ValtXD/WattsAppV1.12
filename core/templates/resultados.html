@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load math_filters %}
+
+{% block content %}
+<div class="card">
+    <h1>Resultados</h1>
+    
+    <!-- Filtro por Data -->
+    <div style="margin-bottom: 20px;">
+        <h3>Selecionar data</h3>
+        <select onchange="window.location.href='?data='+this.value" 
+                style="width: 100%; padding: 8px; border: 1px solid #ddd;">
+            <option value="">Selecione uma data...</option>
+            {% for data in datas_disponiveis %}
+            <option value="{{ data|date:'Y-m-d' }}" 
+                {% if data|date:'Y-m-d' == data_selecionada %}selected{% endif %}>
+            {{ data|date:"d/m/Y" }}
+        </option>
+        {% endfor %}
+        </select>
+    </div>
+
+    <!-- Tabela de Aparelhos do Dia -->
+    <div style="margin-bottom: 30px;">
+        <h3>Aparelhos Cadastrados em {{ data_selecionada|date:"d/m/Y" }}</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+                <tr style="background: #f8f9fa;">
+                    <th style="padding: 10px; text-align: left;">Ambiente</th>
+                    <th style="padding: 10px; text-align: left;">Aparelho</th>
+                    <th style="padding: 10px; text-align: left;">Estado</th>
+                    <th style="padding: 10px; text-align: left;">Bandeira</th>
+                    <th style="padding: 10px; text-align: right;">Consumo Dia (kWh)</th>
+                    <th style="padding: 10px; text-align: right;">Consumo Mês (kWh)</th>
+                    <th style="padding: 10px; text-align: right;">Custo Dia (R$)</th>
+                    <th style="padding: 10px; text-align: right;">Custo Mês (R$)</th>
+                    <th style="padding: 10px; text-align: right;">Custo Social (R$)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for aparelho in aparelhos_dia %}
+                <tr style="border-bottom: 1px solid #ddd;">
+                    <td style="padding: 10px;">{{ aparelho.ambiente.nome }}</td>
+                    <td style="padding: 10px;">{{ aparelho.nome }}</td>
+                    <td style="padding: 10px;">{{ aparelho.estado.nome }}</td>
+                    <td style="padding: 10px;">{{ aparelho.bandeira.get_cor_display }}</td>
+                    <td style="padding: 10px; text-align: right;">{{ aparelho.consumo_diario_kwh|floatformat:2 }}</td>
+                    <td style="padding: 10px; text-align: right;">{{ aparelho.consumo_diario_kwh|mul:30|floatformat:2 }}</td>
+                    <td style="padding: 10px; text-align: right;">{{ aparelho.custo_diario|floatformat:2 }}</td>
+                    <td style="padding: 10px; text-align: right;">{{ aparelho.custo_diario|mul:30|floatformat:2 }}</td>
+                    <td style="padding: 10px; text-align: right;">{{ aparelho.custo_social_diario|mul:30|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+                <!-- Linha de totais -->
+                <tr style="font-weight: bold; background: #f8f9fa;">
+                    <td colspan="4" style="padding: 10px; text-align: right;">TOTAL:</td>
+                    <td style="padding: 10px; text-align: right;">{{ consumo_total_dia|floatformat:2 }}</td>
+                    <td style="padding: 10px; text-align: right;">{{ consumo_total_dia|mul:30|floatformat:2 }}</td>
+                    <td style="padding: 10px; text-align: right;">{{ custo_total_normal|floatformat:2 }}</td>
+                    <td style="padding: 10px; text-align: right;">{{ custo_total_normal|mul:30|floatformat:2 }}</td>
+                    <td style="padding: 10px; text-align: right;">{{ custo_total_social|floatformat:2 }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Botões -->
+    <div style="display: flex; gap: 10px;">
+        <a href="{% url 'core:calcular' %}" 
+           style="padding: 10px 20px; background: #17a2b8; color: white; text-decoration: none; border-radius: 4px;">
+            Voltar
+        </a>
+    </div>
+</div>
+{% endblock %}

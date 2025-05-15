@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% load math_filters %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Mensagens de feedback -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <h2 class="mb-4">Resultado do Processamento</h2>
+    
+    {% if erro %}
+        <div class="alert alert-danger">{{ erro }}</div>
+        <a href="{% url 'core:coleta_documentacao' %}" class="btn btn-primary">Voltar</a>
+    {% endif %}
+
+    <!-- Seção de Dados Processados -->
+    {% if documento_processado %}
+        <!-- Card de Dados (Medidor ou Aparelhos) -->
+        <div class="card mb-4">
+            <div class="card-header {% if dados_origem.tipo == 'Medidor de Energia' %}bg-primary{% else %}bg-success{% endif %} text-white">
+                <h4 class="mb-0">
+                    {% if dados_origem.tipo == 'Medidor de Energia' %}
+                        <i class="fas fa-tachometer-alt me-2"></i> Dados do Medidor
+                    {% else %}
+                        <i class="fas fa-plug me-2"></i> Lista de Aparelhos
+                    {% endif %}
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- Conteúdo dinâmico baseado no tipo de dado -->
+                {% if dados_origem.tipo == 'Medidor de Energia' %}
+                    <!-- Tabela para Medidor -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Período:</strong> {{ dados_origem.periodo }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Dias de medição:</strong> {{ dados_origem.dias_medicao }}
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <!-- Cabeçalho da tabela -->
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Leitura Inicial (kWh)</th>
+                                    <th>Leitura Final (kWh)</th>
+                                    <th>Consumo Diário (kWh)</th>
+                                    <th>Consumo Acumulado (kWh)</th>
+                                </tr>
+                            </thead>
+                            <!-- Dados do medidor -->
+                            <tbody>
+                                {% for leitura in dados_origem.leituras %}
+                                <tr>
+                                    <td>{{ leitura.data }}</td>
+                                    <td>{{ leitura.inicial|floatformat:1 }}</td>
+                                    <td>{{ leitura.final|floatformat:1 }}</td>
+                                    <td>{{ leitura.consumo_diario|floatformat:1 }}</td>
+                                    <td>{{ leitura.consumo_acumulado|floatformat:1 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <!-- Tabela para Aparelhos -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Consumo Diário Total:</strong> {{ dados_origem.consumo_total_diario|floatformat:2 }} kWh
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Consumo Mensal Estimado:</strong> {{ dados_origem.consumo_mensal_estimado|floatformat:2 }} kWh
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Aparelho</th>
+                                    <th>Potência (W)</th>
+                                    <th>Horas/Dia</th>
+                                    <th>Consumo Diário (kWh)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for aparelho in dados_origem.itens %}
+                                <tr>
+                                    <td>{{ aparelho.nome }}</td>
+                                    <td>{{ aparelho.potencia|floatformat:1 }}</td>
+                                    <td>{{ aparelho.horas|floatformat:1 }}</td>
+                                    <td>{{ aparelho.consumo_diario|floatformat:3 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Seção de Cálculo de Tarifas -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0"><i class="fas fa-calculator me-2"></i> Cálculo de Tarifas</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="estado" class="form-label">Estado</label>
+                            <select class="form-select" id="estado" name="estado" required>
+                                <option value="">Selecione...</option>
+                                {% for estado, tarifa in tarifas_estados.items %}
+                                    <option value="{{ estado }}" {% if resultados and resultados.estado == estado %}selected{% endif %}>
+                                        {{ estado }} (R$ {{ tarifa|floatformat:3 }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div><br>
+                        <div class="col-md-4">
+                            <label for="bandeira" class="form-label">Bandeira Tarifária</label>
+                            <select class="form-select" id="bandeira" name="bandeira">
+                                {% for bandeira, valor in BANDEIRAS.items %}
+                                    <option value="{{ bandeira }}" {% if resultados and resultados.bandeira == bandeira %}selected{% endif %}>
+                                        {{ bandeira|upper }} (R$ {{ valor|floatformat:5 }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div><br>
+                        <div class="col-md-4">
+                            <div class="form-check pt-4">
+                                <input class="form-check-input" type="checkbox" id="tarifa_social" name="tarifa_social" {% if resultados and resultados.tarifa_social_aplicada %}checked{% endif %}>
+                                <label class="form-check-label" for="tarifa_social">
+                                    Aplicar Tarifa Social
+                                </label>
+                            </div>
+                        </div>
+                    </div><br>
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-calculator me-2"></i> Calcular
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Resultados Financeiros (SÓ aparece após cálculo) -->
+        {% if resultados %}
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h4 class="card-title">Resultados Financeiros</h4>
+                    <table class="table table-bordered">
+                        <tr>
+                            <th>Consumo Total ({{ resultados.periodo }})</th>
+                            <td>{{ resultados.consumo_kwh|floatformat:2 }} kWh</td>
+                        </tr>
+                        <tr>
+                            <th>Tarifa ({{ resultados.estado }})</th>
+                            <td>R$ {{ resultados.tarifa|floatformat:3 }} por kWh</td>
+                        </tr>
+                        <tr>
+                            <th>Custo de Energia</th>
+                            <td>R$ {{ resultados.custo_energia|floatformat:2 }}</td>
+                        </tr>
+                        {% if resultados.tarifa_social_aplicada %}
+                        <tr>
+                            <th>Desconto Tarifa Social</th>
+                            <td>{{ resultados.desconto }}</td>
+                        </tr>
+                        <tr>
+                            <th>Custo com Desconto</th>
+                            <td>R$ {{ resultados.custo_energia_com_desconto|floatformat:2 }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th>Bandeira ({{ resultados.bandeira }})</th>
+                            <td>R$ {{ resultados.custo_bandeira|floatformat:2 }}</td>
+                        </tr>
+                        <tr class="table-active">
+                            <th>Total Estimado</th>
+                            <td>R$ {{ resultados.total|floatformat:2 }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- BOTÃO SALVAR (agora aparece APENAS após resultados) -->
+            <div class="text-center mt-4">
+                <form method="post" action="{% url 'core:salvar_dados' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="tipo_dado" value="{{ dados_origem.tipo }}">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="fas fa-save me-2"></i> Salvar Dados
+                    </button>
+                    <p class="text-muted mt-2">Estes dados serão armazenados para acesso futuro</p>
+                </form>
+            </div>
+        {% endif %}
+
+    {% else %}
+        <!-- Mensagem quando não há dados processados -->
+        <div class="alert alert-info">
+            Nenhum documento processado. <a href="{% url 'core:coleta_documentacao' %}">Envie um documento</a> para análise.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Inicialização de tooltips -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltips = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltips.map(function(tooltip) {
+        return new bootstrap.Tooltip(tooltip);
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <h1>Registro de Aparelho</h1>
+    
+    <form method="post" id="form-aparelho">
+        {% csrf_token %}
+        
+        <!-- Seção de Data (MANTIDO ORIGINAL) -->
+        <div style="margin-bottom: 15px;">
+            <h3>Data do Registro</h3>
+            <input type="date" name="data_cadastro" value="{{ data_atual|date:'Y-m-d' }}" required 
+                   style="width: 100%; padding: 8px; border: 1px solid #ddd;">
+        </div>
+
+        <!-- NOVO: Seção de Estado (MESMO ESTILO) -->
+        <div style="margin-bottom: 15px;">
+            <h3>Estado</h3>
+            <select name="estado" required style="width: 100%; padding: 8px; border: 1px solid #ddd;">
+                <option value="">Selecione...</option>
+                {% for estado in estados %}
+                <option value="{{ estado.id }}">{{ estado.nome }} (R$ {{ estado.tarifa.valor_kwh }}/kWh)</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- NOVO: Seção de Bandeira (MESMO ESTILO) -->
+        <div style="margin-bottom: 15px;">
+            <h3>Bandeira Tarifária</h3>
+            <select name="bandeira" required style="width: 100%; padding: 8px; border: 1px solid #ddd;">
+                {% for bandeira in bandeiras %}
+                <option value="{{ bandeira.id }}">{{ bandeira.get_cor_display }} (R$ {{ bandeira.valor_adicional }}/kWh)</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Seção de Ambiente (MANTIDO ORIGINAL) -->
+        <div style="margin-bottom: 20px;">
+            <h3>Ambiente</h3>
+            <select name="ambiente" required style="width: 100%; padding: 8px; border: 1px solid #ddd;">
+                <option value="">Selecione...</option>
+                {% for ambiente in ambientes %}
+                <option value="{{ ambiente.id }}">{{ ambiente.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Restante do formulário (MANTIDO ORIGINAL) -->
+        <div style="margin-bottom: 15px;">
+            <h3>Nome do Aparelho</h3>
+            <input type="text" name="nome" required style="width: 100%; padding: 8px; border: 1px solid #ddd;">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+            <div>
+                <h3>Potência (Watts)</h3>
+                <input type="number" name="potencia" step="0.01" required 
+                       style="width: 100%; padding: 8px; border: 1px solid #ddd;">
+            </div>
+            
+            <div>
+                <h3>Tempo de Uso (horas/dia)</h3>
+                <input type="number" name="horas" step="0.1" required 
+                       style="width: 100%; padding: 8px; border: 1px solid #ddd;">
+            </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <h3>Quantidade</h3>
+            <input type="number" name="quantidade" value="1" min="1" required 
+                   style="width: 100%; padding: 8px; border: 1px solid #ddd;">
+        </div>
+
+        <!-- Botões (MANTIDO ORIGINAL) -->
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" name="salvar" 
+                    style="padding: 10px 20px; background: #17a2b8; color: white; border: none; cursor: pointer;">
+                Salvar
+            </button>
+            
+            <a href="{% url 'core:resultados' %}" 
+               style="padding: 10px 20px; background: #28a745; color: white; text-decoration: none; border-radius: 4px;">
+                Calcular
+            </a>
+            
+            <a href="{% url 'core:home' %}" 
+               style="padding: 10px 20px; background: #6c757d; color: white; text-decoration: none; margin-left: auto;">
+                Cancelar
+            </a>
+        </div>
+    </form>
+
+    <!-- Lista de Aparelhos Cadastrados (MANTIDO ORIGINAL) -->
+    {% if aparelhos %}
+    <div style="margin-top: 30px;">
+        <h2>Aparelhos Cadastrados</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f8f9fa;">
+                    <th style="padding: 10px; text-align: left;">Data</th>
+                    <th style="padding: 10px; text-align: left;">Ambiente</th>
+                    <th style="padding: 10px; text-align: left;">Aparelho</th>
+                    <th style="padding: 10px; text-align: right;">Potência (W)</th>
+                    <th style="padding: 10px; text-align: right;">Horas/Dia</th>
+                    <th style="padding: 10px; text-align: right;">Quantidade</th>
+                    <th style="padding: 10px; text-align: center;">Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for aparelho in aparelhos %}
+                <tr style="border-bottom: 1px solid #ddd;">
+                    <td style="padding: 10px;">{{ aparelho.data_cadastro|date:"d/m/Y" }}</td>
+                    <td style="padding: 10px;">{{ aparelho.ambiente }}</td>
+                    <td style="padding: 10px;">{{ aparelho.nome }}</td>
+                    <td style="padding: 10px; text-align: right;">{{ aparelho.potencia_watts }}</td>
+                    <td style="padding: 10px; text-align: right;">{{ aparelho.tempo_uso_diario_horas }}</td>
+                    <td style="padding: 10px; text-align: right;">{{ aparelho.quantidade }}</td>
+                    <td style="padding: 10px; text-align: center;">
+                        <a href="{% url 'core:remover_aparelho' aparelho.id %}" 
+                           style="color: #dc3545; text-decoration: none;"
+                           onclick="return confirm('Tem certeza que deseja remover este aparelho?')">
+                            Remover
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    document.querySelector('select[name="ambiente"]').focus();
+</script>
+{% endblock %}
