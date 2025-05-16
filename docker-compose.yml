@@ -1,0 +1,29 @@
+services:
+  web:
+    build: .
+    image: api-energia
+    ports:
+      - "8000:8000"
+    environment:
+      DB_ENGINE: django.db.backends.postgresql_psycopg2
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: energia_db
+      DB_USER: postgres
+      DB_PASS: 123456
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13-alpine
+    environment:
+      POSTGRES_DB: energia_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data: {}
